@@ -6,6 +6,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.7] — 2026-10-20
+
+### Docs
+
+- Refreshed the screenshots for 0.2.5/0.2.6: the sidebar-foot entry is gone, and the View
+  options screenshot shows the hidden count, e.g. "Show hidden workspaces (3)" /
+  "显示隐藏工作区 (3)".
+
 ## [0.2.6] — 2026-10-20
 
 ### Added
