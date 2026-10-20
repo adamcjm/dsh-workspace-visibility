@@ -6,6 +6,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-10-20
+
+### Docs
+
+- New **Profiles and Hosts** section (English + 中文): the state path derives from
+  `$DSH_HOME`, not from the profile, so the `desktop` and `web` profiles share one state
+  when they share a `DSH_HOME`; a different `DSH_HOME` (another machine, custom home,
+  remote Host) keeps its own state; a profile without the plugin is unaffected; remote
+  browser access shares the Host it connects to. No runtime code change.
+
 ## [0.2.3] — 2026-10-20
 
 ### Fixed

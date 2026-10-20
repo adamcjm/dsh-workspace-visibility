@@ -63,6 +63,26 @@ Hidden ids and the **Show hidden workspaces** switch are **Host state**, not bro
   workspace in Desktop shows up in the open web UI and vice versa, without either side
   losing the other's change.
 
+### Profiles and Hosts
+
+The state path is derived from `$DSH_HOME`, **not** from the profile, so the `desktop`
+profile and the `web` profile share one state file when they run with the same
+`DSH_HOME`. Concretely:
+
+- **Same `DSH_HOME`** (the default `~/.dsh` on one machine) — any mix of DSH Desktop,
+  `dsh web`, desktop profile and web profile shares one hidden set. Updates land in under
+  a second: a push over SSE inside one Host, and the cross-process file watch between the
+  Desktop Host and the `dsh web` Host.
+- **Different `DSH_HOME`** (another machine, a custom `DSH_HOME`, a remote Host) — each
+  gets its own state file and its own hidden set. There is no cross-machine sync: the
+  plugin stores the state locally, it does not call any network service.
+- **A profile without this plugin** (for example a TUI-only profile) is unaffected: it
+  shows every workspace. The state file is profile-independent, so installing the plugin
+  there later picks up the same hidden set without migration.
+- **Remote browser access** to a running Host shares that Host's state, because the
+  browser half talks to the Host it is connected to; it is the Host (and its
+  `DSH_HOME`) that decides the state.
+
 ### Robustness
 
 The state is treated as untrusted input; the plugin never takes the Host down:
@@ -321,6 +341,21 @@ MIT © adamcjm
   但共享同一个 `$DSH_HOME`。两个进程都会监听共享状态文件：一方写入后，另一方会在 1 秒内
   读到并广播给自己已连接的客户端；同时写入走跨进程锁 + read-modify-write，所以 Desktop
   里隐藏一个工作区，打开的 web 界面会跟着变，反之亦然，双方都不会覆盖对方的改动。
+
+### Profile 与 Host
+
+状态路径由 `$DSH_HOME` 决定，**与 profile 无关**——所以当 `desktop` profile 与 `web`
+profile 使用同一个 `DSH_HOME` 时，它们共享同一份状态文件。具体来说：
+
+- **同一个 `DSH_HOME`**（同一台机器上的默认 `~/.dsh`）——DSH Desktop、`dsh web`、
+  desktop profile、web profile 任意组合都共享一份隐藏集合；更新在 1 秒内到达：
+  同一个 Host 内走 SSE 推送，Desktop Host 与 `dsh web` Host 之间走跨进程文件监听。
+- **不同的 `DSH_HOME`**（另一台机器、自定义 `DSH_HOME`、远程 Host）——各自拥有独立的
+  状态文件与隐藏集合。没有跨机器同步：插件只把状态存在本地，不调用任何网络服务。
+- **没装本插件的 profile**（例如只有 TUI 的 profile）不受影响，照旧显示所有工作区。
+  状态文件与 profile 无关，之后在那边装上插件会直接读到同一份隐藏集合，无需迁移。
+- **远程浏览器访问**正在运行的 Host 时，共享的是那个 Host 的状态——浏览器半侧只跟
+  它连接的 Host 通信，状态由 Host（及其 `DSH_HOME`）决定。
 
 ### 容错
 
