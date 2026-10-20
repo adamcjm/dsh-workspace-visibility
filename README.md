@@ -16,9 +16,6 @@ Two entries, exactly where you already look:
 2. **Sidebar → View options → Show hidden workspaces** — a persisted switch that reveals
    every hidden workspace so you can restore it.
 
-A sidebar-foot fallback entry (**“Hidden workspaces: N”**) toggles the same switch, so a
-future sidebar restyle can never strand a hidden workspace.
-
 Display-only by design:
 
 - no archive, unarchive, rename, move, pin or delete calls;
@@ -32,8 +29,7 @@ Display-only by design:
 | --- | --- |
 | ![Workspace row menu with Hide workspace](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/workspace-menu.en.png) | ![View options menu with Show hidden workspaces](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/view-options.en.png) |
 
-After hiding, the workspace row and all of its sessions disappear; the sidebar foot shows the
-hidden count so nothing is ever stranded:
+After hiding, the workspace row and all of its sessions disappear:
 
 ![Sidebar after hiding a workspace, with the hidden-count fallback at the foot](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.en.png)
 
@@ -217,9 +213,9 @@ Host archive write and no data loss.
   random ports. Clearing browser site data does not forget it. A client connected to a
   different Host (or a different `DSH_HOME`) has its own state.
 - **The menu entries are DOM-appended.** A future sidebar restyle can move the menus; the
-  hiding itself is unaffected (it is projection-based), and the sidebar-foot fallback stays
-  available. If the entries go missing after a DSH upgrade, restore hidden workspaces from
-  that fallback at the sidebar foot.
+  hiding itself is unaffected (it is projection-based). If the entries go missing after a
+  DSH upgrade, the hidden set is still in the Host state file — upgrading or re-adding the
+  plugin brings the entries back.
 - **Collapsed groups lose their expansion state** for a hidden workspace (the shipped view
   store prunes records of workspaces it no longer sees). Restoring the workspace shows its
   group collapsed again.
@@ -301,9 +297,6 @@ MIT © adamcjm
 2. **侧栏「WorkSpaces」区头 → 视图选项 → 显示隐藏工作区** —— 一个持久化开关，打开后隐藏行
    重新出现，可逐行恢复。
 
-侧栏底部还有一个兜底入口（**“隐藏的工作区: N”**），切换同一个开关，避免侧栏改版导致隐藏行
-“找不回来”。
-
 设计上只做显示过滤：
 
 - 不调用归档 / 取消归档 / 重命名 / 移动 / pin / 删除；
@@ -316,7 +309,7 @@ MIT © adamcjm
 | --- | --- |
 | ![工作区菜单里的「隐藏工作区」](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/workspace-menu.png) | ![视图选项里的「显示隐藏工作区」](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/view-options.png) |
 
-隐藏后，该工作区行连同它名下的会话一起消失；侧栏底部显示隐藏计数，保证永远能找回来：
+隐藏后，该工作区行连同它名下的会话一起消失：
 
 ![隐藏工作区后的侧栏与底部隐藏计数入口](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.png)
 
@@ -476,8 +469,8 @@ slot；工作区行的「…」菜单和视图选项菜单都是硬编码数组�
   `$DSH_HOME/storages/workspace-visibility.json`；连接同一个 Host 的浏览器、标签页、
   Desktop 与 web 界面看到同一份集合，跨 Desktop 重启与随机端口保留，清站点数据也不会丢。
   连接不同 Host（或不同 `DSH_HOME`）的客户端各有自己的状态。
-- **两个菜单项是 DOM 追加的。** 未来侧边栏改版可能移动菜单；隐藏本身不受影响（走数据投影），
-  侧栏底部兜底入口始终可用。如升级后菜单项消失，请用底部兜底恢复。
+- **两个菜单项是 DOM 追加的。** 未来侧边栏改版可能移动菜单；隐藏本身不受影响（走数据投影）。
+  如升级后菜单项消失，隐藏集合仍在 Host 状态文件里，重装或升级插件后菜单即恢复。
 - **隐藏工作区的展开状态会丢。** 官方视图 store 会清理“看不见的工作区”的展开记录，
   恢复后该组默认折叠。
 - **正在使用的工作区也可以隐藏。** 侧栏行与该组会话消失，主视图里正在进行的对话不受影响；

@@ -238,7 +238,7 @@ function equal(name, actual, expected) {
 const loaded = loadBundle()
 equal('loader entry id is the package name', loaded.entry.id, PACKAGE_NAME)
 check('factory publishes apply', typeof loaded.exports.apply === 'function')
-equal('inject waits for slots/locale/workspaces', loaded.exports.inject, ['slots', 'locale', 'workspaces'])
+equal('inject waits for locale/workspaces', loaded.exports.inject, ['locale', 'workspaces'])
 const t = loaded.exports.__test
 check('test seam is exported', t !== undefined && typeof t.filterProjection === 'function'
   && typeof t.installSync === 'function' && typeof t.normalizeRemoteState === 'function')
@@ -409,9 +409,8 @@ equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), nul
   await sleep(40)
   check('apply registers the namespace dictionary', dictionaries.length === 1
     && dictionaries[0].ns === 'dsh-workspace-visibility' && dictionaries[0].dict.zh && dictionaries[0].dict.en)
-  check('apply registers the sidebar-foot fallback', registrations.length === 1
-    && registrations[0].options.name === 'sidebar.footer.action'
-    && registrations[0].options.id === 'workspace-visibility')
+  check('apply registers no sidebar slot components (footer button removed)', registrations.length === 0,
+    `registrations=${registrations.length}`)
   check('Host state is projected onto the sidebar model', model.getSnapshot().items.length === 1
     && model.getSnapshot().items[0].workspaceId === 'w2')
   check('apply injects exactly one stylesheet', loadedApply.document.getElementById('dsh-workspace-visibility/style') !== null)

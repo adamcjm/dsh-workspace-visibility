@@ -6,6 +6,17 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-10-20
+
+### Changed
+
+- **Removed the sidebar-foot fallback entry** ("Hidden workspaces: N"). Hiding and restoring
+  now go through the workspace row menu and the View options switch only, so the sidebar foot
+  stays owned by other plugins (Bot team switcher, settings, …) without an extra row from this
+  plugin.
+- `inject` no longer declares `slots`; the plugin only needs `locale` and `workspaces`.
+- README (English + 中文) and the hidden-state screenshots updated accordingly.
+
 ## [0.2.4] — 2026-10-20
 
 ### Docs
