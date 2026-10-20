@@ -283,6 +283,15 @@ equal('recognizes the shipped view options menu (zh)', t.menuKindFromText('åˆ†ç»
 equal('recognizes the shipped view options menu (en)', t.menuKindFromText('Group byWorkspace'), 'viewOptions')
 equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), null)
 
+/* 4b. Hidden count in the View options label. */
+{
+  const fakeT = (key, vars) => key === 'viewOptions.showHiddenCount'
+    ? `Show hidden workspaces (${vars.n})`
+    : key
+  equal('view options label carries the hidden count', t.showHiddenLabelText(fakeT, 3), 'Show hidden workspaces (3)')
+  equal('view options label shows zero', t.showHiddenLabelText(fakeT, 0), 'Show hidden workspaces (0)')
+}
+
 /* ------------------------------------------------------------------ *
  * 5. In-memory store (no browser persistence)                          *
  * ------------------------------------------------------------------ */

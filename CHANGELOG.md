@@ -6,6 +6,14 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.6] — 2026-10-20
+
+### Added
+
+- The **View options** entry now shows the current hidden count in parentheses, e.g.
+  "Show hidden workspaces (2)" / "显示隐藏工作区 (2)", and refreshes it while the menu
+  stays open (for example when another client changes the set).
+
 ## [0.2.5] — 2026-10-20
 
 ### Changed

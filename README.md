@@ -13,8 +13,8 @@ Two entries, exactly where you already look:
 
 1. **Workspace row →“…” menu → Hide workspace** (it reads *Unhide workspace* once the
    hidden rows are on screen again).
-2. **Sidebar → View options → Show hidden workspaces** — a persisted switch that reveals
-   every hidden workspace so you can restore it.
+2. **Sidebar → View options → Show hidden workspaces (N)** — a persisted switch that reveals
+   every hidden workspace so you can restore it; the label carries the current hidden count.
 
 Display-only by design:
 
@@ -294,8 +294,8 @@ MIT © adamcjm
 两个入口都在你原本就要找的位置：
 
 1. **工作区行 →「…」菜单 → 隐藏工作区**（在「显示隐藏工作区」打开时，这一项变为 *取消隐藏工作区*）。
-2. **侧栏「WorkSpaces」区头 → 视图选项 → 显示隐藏工作区** —— 一个持久化开关，打开后隐藏行
-   重新出现，可逐行恢复。
+2. **侧栏「WorkSpaces」区头 → 视图选项 → 显示隐藏工作区 (N)** —— 一个持久化开关，打开后隐藏行
+   重新出现，可逐行恢复；括号里是当前隐藏的工作区数量。
 
 设计上只做显示过滤：
 
