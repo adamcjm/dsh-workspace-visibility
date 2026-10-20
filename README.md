@@ -29,14 +29,14 @@ Display-only by design:
 
 | Workspace “…” menu | View options |
 | --- | --- |
-| ![Workspace row menu with Hide workspace](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/workspace-menu.png) | ![View options menu with Show hidden workspaces](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/view-options.png) |
+| ![Workspace row menu with Hide workspace](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/workspace-menu.en.png) | ![View options menu with Show hidden workspaces](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/view-options.en.png) |
 
 After hiding, the workspace row and all of its sessions disappear; the sidebar foot shows the
 hidden count so nothing is ever stranded:
 
-![Sidebar after hiding a workspace, with the hidden-count fallback at the foot](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.png)
+![Sidebar after hiding a workspace, with the hidden-count fallback at the foot](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.en.png)
 
-<sub>Screenshots use demo workspace names; the UI language is Chinese.</sub>
+<sub>Screenshots use demo workspace names; this English edition shows the English UI — the 中文 section below shows the same flow in Chinese.</sub>
 
 ## Install
 
@@ -244,7 +244,7 @@ MIT © adamcjm
 
 ![隐藏工作区后的侧栏与底部隐藏计数入口](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.png)
 
-<sub>截图使用演示用的工作区名称，界面语言为中文。</sub>
+<sub>截图使用演示用的工作区名称；本节使用中文界面（英文节为同一流程的英文界面截图）。</sub>
 
 ## 安装
 

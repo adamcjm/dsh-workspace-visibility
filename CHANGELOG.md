@@ -6,6 +6,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-10-20
+
+### Changed
+
+- The English README now shows screenshots captured in the English UI (Rename / Delete
+  workspace / Hide workspace, Group by / Order by / Filter sessions / Show hidden
+  workspaces); the Chinese section keeps the Chinese-UI screenshots.
+- Screenshots remain anonymized: demo workspace/session names only, sidebar-only crops,
+  no local paths.
+
 ## [0.1.2] — 2026-10-20
 
 ### Fixed
