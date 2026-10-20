@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Workspace Visibility">
+  <defs>
+    <linearGradient id="wv-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#152238"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#wv-bg)"/>
+  <path d="M32 20.5c-9.2 0-16.4 6.6-19.4 12.4 3 5.8 10.2 12.4 19.4 12.4s16.4-6.6 19.4-12.4c-3-5.8-10.2-12.4-19.4-12.4Zm0 19.4a6.9 6.9 0 1 1 0-13.8 6.9 6.9 0 0 1 0 13.8Z" fill="#7dd3fc"/>
+  <circle cx="32" cy="32.5" r="3.2" fill="#0b1220"/>
+  <path d="M15 51 51 15" stroke="#0b1220" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M15 51 51 15" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+</svg>

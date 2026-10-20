@@ -1,0 +1,11 @@
+# @adamcjm/dsh-workspace-visibility — bundle patch
+#
+# 只插入一行插件。真正的功能全部在浏览器半侧（lib/client.js）：
+#   - 过滤侧边栏的工作区投影（隐藏指定工作区，连同其会话）；
+#   - 向工作区行自带的「…」菜单追加「隐藏工作区 / 取消隐藏」；
+#   - 向「视图选项」菜单追加「显示隐藏工作区」开关；
+#   - 侧栏底部一个恢复入口，作为菜单注入失效时的兜底。
+# host 半侧只负责让插件出现在插件树里，不改变任何 host 状态。
+- insert:
+    - id: workspace-visibility
+      name: '@adamcjm/dsh-workspace-visibility'

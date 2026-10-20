@@ -1,0 +1,66 @@
+{
+  "name": "@adamcjm/dsh-workspace-visibility",
+  "version": "0.1.0",
+  "description": "Hide selected workspaces — and the sessions they own — from the DSH sidebar, then bring them back with a Show hidden workspaces switch in the sidebar view options. Display-only: workspace, session and archive data are never modified.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "test"
+  ],
+  "scripts": {
+    "test": "node test/verify.mjs"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "deepseek",
+    "dsh",
+    "dsh-plugin",
+    "workspace",
+    "workspaces",
+    "sidebar",
+    "hide-workspace",
+    "workspace-visibility"
+  ],
+  "author": "adamcjm",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamcjm/dsh-workspace-visibility.git"
+  },
+  "homepage": "https://github.com/adamcjm/dsh-workspace-visibility#readme",
+  "bugs": {
+    "url": "https://github.com/adamcjm/dsh-workspace-visibility/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    },
+    "manifestVersion": 1
+  }
+}
