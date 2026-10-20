@@ -301,10 +301,13 @@ equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), nul
   check('setHidden is optimistic', store.setHidden('w2', true) === true && store.isHidden('w2'))
   check('setHidden reports the mutation for the Host', mutations.length === 1
     && mutations[0].type === 'setHidden' && mutations[0].workspaceId === 'w2' && mutations[0].value === true)
-  check('hiding closes the show-hidden switch', (() => {
+  check('hiding closes the show-hidden switch and tells the Host', (() => {
     store.applyRemoteState({ hidden: ['w1', 'w2'], showHidden: true })
+    const beforeCount = mutations.length
     store.setHidden('w3', true)
+    const emitted = mutations.slice(beforeCount)
     return store.getState().showHidden === false
+      && emitted.some((m) => m.type === 'setShowHidden' && m.value === false)
   })())
   check('setShowHidden reports the mutation', (() => {
     const beforeCount = mutations.length

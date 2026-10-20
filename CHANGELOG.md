@@ -6,6 +6,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-10-20
+
+### Fixed
+
+- Unhiding the last hidden workspace (or hiding a workspace while the show-hidden
+  switch was on) reset the switch locally without telling the Host, so the Host
+  state — and every other connected client — kept it on. The implicit reset now
+  travels as a `setShowHidden: false` increment as well.
+
 ## [0.2.0] — 2026-10-20
 
 ### Changed
