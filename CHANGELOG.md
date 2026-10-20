@@ -6,6 +6,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-10-20
+
+### Fixed
+
+- npm published the Chinese standalone README as the package readme because a second
+  `README*.md` file sat in the package root. The standalone Chinese edition moved to
+  `docs/README.zh-CN.md`; the bilingual `README.md` is now the only root README, so GitHub
+  and npm both render English + 中文.
+
 ## [0.1.1] — 2026-10-20
 
 ### Changed

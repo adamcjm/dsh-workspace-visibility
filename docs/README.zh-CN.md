@@ -1,6 +1,6 @@
 # @adamcjm/dsh-workspace-visibility
 
-[English](README.md) | 中文
+[English](../README.md) | 中文
 
 一个 [DeepSeek Harness](https://github.com/omdsh-dev/dsh) 插件：**把选中的工作区从侧边栏隐藏**，
 需要时再放出来。不归档、不删除、不重命名、不改写任何工作区或会话数据。
