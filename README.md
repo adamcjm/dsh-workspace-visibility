@@ -57,6 +57,22 @@ Hidden ids and the **Show hidden workspaces** switch are **Host state**, not bro
   the same Host sees the same hidden set, and a client connected to a different Host (or a
   different `DSH_HOME`) has its own state.
 
+### Robustness
+
+The state is treated as untrusted input; the plugin never takes the Host down:
+
+- a missing, unreadable, corrupt or absurdly large (> 1 MiB) state file is treated as an
+  empty state and logged — never thrown;
+- non-string entries are dropped; the id list is de-duplicated and capped;
+- hidden ids whose workspace was deleted are pruned automatically (on load, on every read
+  and once a minute), and a hide request for an unknown workspace is ignored — a deleted
+  workspace never leaves a stale record behind;
+- if the workspace registry is unavailable, the state is kept as-is instead of pruned;
+- a failed write (read-only directory, disk full) keeps the in-memory state, logs a
+  warning and still answers the request;
+- on the browser side a failed sync is queued and retried, the SSE stream reconnects by
+  itself, and malformed frames are ignored.
+
 ### Upgrade from 0.1.x
 
 The old `localStorage` key (`dsh-workspace-visibility.state.v1`) is removed exactly once,
@@ -295,6 +311,18 @@ MIT © adamcjm
   工作区时不会互相覆盖。
 - 结果：状态能跨 Desktop 重启与随机端口保留；连接同一个 Host 的所有客户端看到同一份
   隐藏集合；连接不同 Host（或不同 `DSH_HOME`）的客户端各有自己的状态。
+
+### 容错
+
+状态按不可信输入处理，插件不会把 Host 弄崩：
+
+- 状态文件缺失、不可读、损坏或异常过大（> 1 MiB）时按空状态处理并记录日志，不抛错；
+- 非字符串条目直接丢弃；id 列表去重并有上限；
+- 工作区被删除后，它对应的隐藏记录会被自动清理（加载时、每次读取时、以及每分钟一次），
+  针对未知工作区的隐藏请求会被忽略——已删除的工作区不会留下失效记录；
+- 工作区 registry 不可用时保留原状态、不做清理，也不报错；
+- 写入失败（目录只读、磁盘满）时保留内存状态、记录警告，请求仍然正常返回；
+- 浏览器侧同步失败会排队重试，SSE 流自动重连，解析失败的帧直接忽略。
 
 ### 从 0.1.x 升级
 

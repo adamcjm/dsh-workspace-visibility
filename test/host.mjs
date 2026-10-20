@@ -15,7 +15,7 @@
  *
  * Run: node test/host.mjs
  */
-import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -83,12 +83,16 @@ function lastFrame(res) {
 }
 
 /** Mount the plugin on a fake context; returns the captured route and disposers. */
-function mount() {
+function mount(options = {}) {
   const routes = []
   const effects = []
   const warnings = []
+  const registry = options.registry ?? null
   const ctx = {
     logger: { warn: (message) => warnings.push(String(message)) },
+    get(name) {
+      return name === 'workspaceRegistry' ? registry : null
+    },
     webServer: {
       register(route) {
         routes.push(route)
@@ -190,6 +194,81 @@ try {
   check('corrupt state file logged a warning', third.warnings.some((message) => message.includes('无法读取')))
   third.dispose()
   await sleep(20)
+
+  /* ------------------------------------------------------------------ *
+   * Robustness scenarios                                                *
+   * ------------------------------------------------------------------ */
+  const caseDir = async (name) => {
+    const dir = join(home, name)
+    await mkdir(join(dir, 'storages'), { recursive: true })
+    return dir
+  }
+  const stateAt = (dir) => join(dir, 'storages', 'workspace-visibility.json')
+  const knownRegistry = (ids) => ({
+    get: (id) => (ids.includes(id) ? { id } : undefined),
+  })
+
+  // A. Stale ids (deleted workspaces) are pruned from the file on access.
+  {
+    const dir = await caseDir('case-a')
+    await writeFile(stateAt(dir), JSON.stringify({
+      version: 1, hidden: ['w1', 'ghost'], showHidden: false, legacyCleanupDone: true, updatedAt: null,
+    }), 'utf8')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1']) })
+    const state = JSON.parse((await call(instance.route, 'GET', '/state')).body)
+    equal('stale hidden ids are pruned on access', state.hidden, ['w1'])
+    equal('pruned hidden ids are persisted', JSON.parse(await readFile(stateAt(dir), 'utf8')).hidden, ['w1'])
+    const rejected = JSON.parse((await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'ghost', value: true })).body)
+    check('hiding a deleted workspace is ignored', !rejected.hidden.includes('ghost'))
+    const known = JSON.parse((await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w1', value: false })).body)
+    equal('a known workspace still mutates normally', known.hidden, [])
+    check('prune logged the cleanup', instance.warnings.some((message) => message.includes('已不存在')))
+    instance.dispose()
+  }
+
+  // B. An absurdly large state file is ignored, not parsed.
+  {
+    const dir = await caseDir('case-b')
+    await writeFile(stateAt(dir), 'x'.repeat(1024 * 1024 + 32), 'utf8')
+    process.env.DSH_HOME = dir
+    const instance = mount()
+    const state = JSON.parse((await call(instance.route, 'GET', '/state')).body)
+    equal('oversized state file degrades to empty', state.hidden, [])
+    check('oversized state file logged a warning', instance.warnings.some((message) => message.includes('过大')))
+    instance.dispose()
+  }
+
+  // C. A missing registry is tolerated: no prune, no crash, state untouched.
+  {
+    const dir = await caseDir('case-c')
+    await writeFile(stateAt(dir), JSON.stringify({
+      version: 1, hidden: ['w1'], showHidden: false, legacyCleanupDone: true, updatedAt: null,
+    }), 'utf8')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: null })
+    const state = JSON.parse((await call(instance.route, 'GET', '/state')).body)
+    equal('state is kept when the registry is unavailable', state.hidden, ['w1'])
+    instance.dispose()
+  }
+
+  // D. A failed write keeps the in-memory state and never rejects the request.
+  {
+    const dir = await caseDir('case-d')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1']) })
+    await chmod(join(dir, 'storages'), 0o500)
+    try {
+      const response = await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w1', value: true })
+      check('mutate succeeds even when the state file cannot be written', response.statusCode === 200)
+      equal('in-memory state survives a failed write', JSON.parse(response.body).hidden, ['w1'])
+      await sleep(30)
+      check('failed write logged a warning', instance.warnings.some((message) => message.includes('写入状态失败')))
+    } finally {
+      await chmod(join(dir, 'storages'), 0o700)
+      instance.dispose()
+    }
+  }
 } finally {
   await rm(home, { recursive: true, force: true })
 }

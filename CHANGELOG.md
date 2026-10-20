@@ -6,6 +6,20 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-10-20
+
+### Added
+
+- **Robustness.** Orphaned hidden ids — a workspace deleted after it was hidden — are
+  pruned from the state file automatically on load, on every read and once a minute;
+  hide requests for an unknown workspace are ignored.
+- Corrupt, unreadable or oversized (> 1 MiB) state files degrade to an empty state with a
+  warning instead of failing.
+- A failed write keeps the in-memory state, logs a warning and still answers requests; an
+  unavailable workspace registry skips pruning instead of dropping state.
+- Host test suite extended to 29 checks (stale ids, oversized file, missing registry,
+  failed write); README gains a robustness section in English and 中文.
+
 ## [0.2.1] — 2026-10-20
 
 ### Fixed
