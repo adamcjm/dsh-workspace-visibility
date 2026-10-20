@@ -6,6 +6,15 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-10-20
+
+### Changed
+
+- Both READMEs now publish a bilingual edition (English + 中文) so GitHub and npm show the
+  same instructions.
+- Added screenshots: workspace menu entry, view-options switch, hidden sidebar state.
+- Added the install section for every supported channel (npm, GitHub release, link checkout).
+
 ### Changed
 
 - **Docs:** expanded installation instructions (npm, manual profile setup, pinned GitHub

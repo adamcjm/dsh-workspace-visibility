@@ -1,8 +1,5 @@
 # @adamcjm/dsh-workspace-visibility
 
-[![npm version](https://img.shields.io/npm/v/@adamcjm/dsh-workspace-visibility.svg)](https://www.npmjs.com/package/@adamcjm/dsh-workspace-visibility)
-[![license](https://img.shields.io/npm/l/@adamcjm/dsh-workspace-visibility.svg)](LICENSE)
-
 [English](README.md) | 中文
 
 一个 [DeepSeek Harness](https://github.com/omdsh-dev/dsh) 插件：**把选中的工作区从侧边栏隐藏**，
@@ -22,6 +19,18 @@
 - 不调用归档 / 取消归档 / 重命名 / 移动 / 删除；
 - 不写 Host 配置、不落文件、不联网；
 - 唯一写入是浏览器里的一个 `localStorage` 键。
+
+## 截图
+
+| 工作区行「…」菜单 | 视图选项菜单 |
+| --- | --- |
+| ![工作区菜单里的「隐藏工作区」](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/workspace-menu.png) | ![视图选项里的「显示隐藏工作区」](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/view-options.png) |
+
+隐藏后，该工作区行连同它名下的会话一起消失；侧栏底部显示隐藏计数，保证永远能找回来：
+
+![隐藏工作区后的侧栏与底部隐藏计数入口](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.png)
+
+<sub>截图使用演示用的工作区名称，界面语言为中文。</sub>
 
 ## 安装
 
