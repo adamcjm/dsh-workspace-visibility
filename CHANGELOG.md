@@ -6,6 +6,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs:** expanded installation instructions (npm, manual profile setup, pinned GitHub
+  release, local `link:` checkout) in both READMEs, and added npm badges.
+
 ## [0.1.0] — 2026-10-20
 
 ### Added

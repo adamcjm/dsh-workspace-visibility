@@ -1,5 +1,8 @@
 # @adamcjm/dsh-workspace-visibility
 
+[![npm version](https://img.shields.io/npm/v/@adamcjm/dsh-workspace-visibility.svg)](https://www.npmjs.com/package/@adamcjm/dsh-workspace-visibility)
+[![license](https://img.shields.io/npm/l/@adamcjm/dsh-workspace-visibility.svg)](LICENSE)
+
 [English](README.md) | 中文
 
 一个 [DeepSeek Harness](https://github.com/omdsh-dev/dsh) 插件：**把选中的工作区从侧边栏隐藏**，
@@ -22,13 +25,46 @@
 
 ## 安装
 
-### 从 npm（发布后）
+要求 **DeepSeek Harness 0.2.0-rc.2 或更新版本**（已在 0.2.0-rc.2 与 0.2.1-rc.2 验证）。
+
+### 从 npm（推荐）
 
 ```sh
 dsh plugin --profile <profile> add @adamcjm/dsh-workspace-visibility
 ```
 
-装完**重启 DSH 应用**（Host 插件树在进程启动时组装），再强制刷新页面。
+`dsh plugin add` 会把依赖与 bundle 条目一起写进 profile 并完成安装，然后：
+
+1. **重启 DSH 应用** —— Host 插件树在进程启动时组装。
+2. **强制刷新页面**（Cmd/Ctrl+Shift+R），让渲染端加载新的 client bundle。
+
+等价的纯手动配置 —— `~/.dsh/profiles/<profile>/package.json`：
+
+```jsonc
+{
+  "dependencies": {
+    "@adamcjm/dsh-workspace-visibility": "^0.1.0"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["…", "@adamcjm/dsh-workspace-visibility"]
+    }
+  }
+}
+```
+
+然后 `cd ~/.dsh/profiles/<profile> && pnpm install`，重启 DSH，刷新页面。
+
+如果该 profile 启用了 pnpm 的 `minimumReleaseAge`，刚发布的版本可能被拒绝；把包名加入该
+profile 的 `pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude`（较新的 pnpm 会自动处理）。
+
+### 从 GitHub Release 安装（钉住 tag）
+
+```sh
+dsh plugin --profile <profile> add https://codeload.github.com/adamcjm/dsh-workspace-visibility/tar.gz/refs/tags/v0.1.0
+```
+
+日常使用请钉住验证过的 tag 或 commit，不要跟随 `main`。
 
 ### 本地开发（`link:`）
 
@@ -53,14 +89,6 @@ cd ~/.dsh/profiles/<profile> && pnpm install
 ```
 
 `link:` 安装出来的是符号链接，之后改 `lib/client.js` 只需重启 Host + 刷新页面，不用重装。
-
-### 从 GitHub
-
-```sh
-dsh plugin --profile <profile> add https://codeload.github.com/adamcjm/dsh-workspace-visibility/tar.gz/refs/heads/main
-```
-
-第三方插件建议钉版本或 commit，不要跟随 `main`。
 
 ## 使用
 

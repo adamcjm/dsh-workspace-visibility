@@ -1,5 +1,8 @@
 # @adamcjm/dsh-workspace-visibility
 
+[![npm version](https://img.shields.io/npm/v/@adamcjm/dsh-workspace-visibility.svg)](https://www.npmjs.com/package/@adamcjm/dsh-workspace-visibility)
+[![license](https://img.shields.io/npm/l/@adamcjm/dsh-workspace-visibility.svg)](LICENSE)
+
 A [DeepSeek Harness](https://github.com/omdsh-dev/dsh) plugin that lets you **hide chosen
 workspaces from the sidebar** — and bring them back whenever you want — without touching
 any workspace, session or archive data.
@@ -22,14 +25,48 @@ Display-only by design:
 
 ## Install
 
-### From npm (published releases)
+Requires **DeepSeek Harness 0.2.0-rc.2 or newer** (tested on 0.2.0-rc.2 and 0.2.1-rc.2).
+
+### From npm (recommended)
 
 ```sh
 dsh plugin --profile <profile> add @adamcjm/dsh-workspace-visibility
 ```
 
-Then restart the DSH app (the Host plugin tree is assembled at process start) and
-hard-refresh the page.
+`dsh plugin add` records the dependency and the bundle entry, installs it into the profile,
+and finishes in two steps:
+
+1. **Restart the DSH app** — the Host plugin tree is assembled at process start.
+2. **Hard-refresh the page** (Cmd/Ctrl+Shift+R) so the renderer loads the new client bundle.
+
+Equivalent manual setup — `~/.dsh/profiles/<profile>/package.json`:
+
+```jsonc
+{
+  "dependencies": {
+    "@adamcjm/dsh-workspace-visibility": "^0.1.0"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": ["…", "@adamcjm/dsh-workspace-visibility"]
+    }
+  }
+}
+```
+
+then `cd ~/.dsh/profiles/<profile> && pnpm install`, restart DSH, refresh.
+
+If the profile enforces pnpm's `minimumReleaseAge`, a just-published version can be
+refused; add the package name to `minimumReleaseAgeExclude` in that profile's
+`pnpm-workspace.yaml` (recent pnpm versions do this automatically).
+
+### From a GitHub release (pinned tag)
+
+```sh
+dsh plugin --profile <profile> add https://codeload.github.com/adamcjm/dsh-workspace-visibility/tar.gz/refs/tags/v0.1.0
+```
+
+Pin a tag or commit you tested; do not follow `main` for daily use.
 
 ### From a local checkout (development, `link:`)
 
@@ -56,14 +93,6 @@ cd ~/.dsh/profiles/<profile> && pnpm install
 
 The `link:` protocol installs a symlink, so later edits to `lib/client.js` only need a
 page refresh after the Host restart — no reinstall.
-
-### From GitHub
-
-```sh
-dsh plugin --profile <profile> add https://codeload.github.com/adamcjm/dsh-workspace-visibility/tar.gz/refs/heads/main
-```
-
-`latest` and tags are independent from the DSH runtime; pin a version you tested.
 
 ## Use
 
