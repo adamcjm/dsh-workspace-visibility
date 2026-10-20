@@ -1,6 +1,6 @@
 {
   "name": "@adamcjm/dsh-workspace-visibility",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Hide selected workspaces — and the sessions they own — from the DSH sidebar, then bring them back with a Show hidden workspaces switch in the sidebar view options. Display-only: workspace, session and archive data are never modified.",
   "type": "module",
   "main": "lib/index.js",

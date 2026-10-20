@@ -6,6 +6,19 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-10-20
+
+### Fixed
+
+- **Desktop ↔ web sync.** DSH Desktop and a `dsh web` instance are separate Host
+  processes sharing one `$DSH_HOME`; each used to cache the visibility state in memory, so
+  a hide in one surface never reached the other. The Host now watches the shared state file
+  and broadcasts foreign changes to its own SSE clients (< 1 s), and mutations take a
+  cross-process lock plus read-modify-write, so two surfaces cannot overwrite each other.
+- Corrupt external writes keep the in-memory state; abandoned lock files expire after 10 s.
+- Host test suite extended to 37 checks (foreign write, merge, echo suppression, corrupt
+  external write, concurrent mutations from two Hosts).
+
 ## [0.2.2] — 2026-10-20
 
 ### Added

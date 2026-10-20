@@ -56,6 +56,12 @@ Hidden ids and the **Show hidden workspaces** switch are **Host state**, not bro
 - Consequences: the state survives Desktop restarts and random ports, every client sharing
   the same Host sees the same hidden set, and a client connected to a different Host (or a
   different `DSH_HOME`) has its own state.
+- **Across DSH surfaces (Desktop ↔ web).** DSH Desktop and a `dsh web` instance are two
+  separate Host processes sharing one `$DSH_HOME`. Each process watches the shared state
+  file and broadcasts changes written by the other one to its own clients (< 1 s), and
+  mutations take a cross-process lock and read-modify-write the file — so hiding a
+  workspace in Desktop shows up in the open web UI and vice versa, without either side
+  losing the other's change.
 
 ### Robustness
 
@@ -311,6 +317,10 @@ MIT © adamcjm
   工作区时不会互相覆盖。
 - 结果：状态能跨 Desktop 重启与随机端口保留；连接同一个 Host 的所有客户端看到同一份
   隐藏集合；连接不同 Host（或不同 `DSH_HOME`）的客户端各有自己的状态。
+- **跨 DSH 界面（Desktop ↔ web）。** DSH Desktop 与 `dsh web` 是两个独立的 Host 进程，
+  但共享同一个 `$DSH_HOME`。两个进程都会监听共享状态文件：一方写入后，另一方会在 1 秒内
+  读到并广播给自己已连接的客户端；同时写入走跨进程锁 + read-modify-write，所以 Desktop
+  里隐藏一个工作区，打开的 web 界面会跟着变，反之亦然，双方都不会覆盖对方的改动。
 
 ### 容错
 

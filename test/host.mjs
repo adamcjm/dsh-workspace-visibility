@@ -82,6 +82,11 @@ function lastFrame(res) {
   return JSON.parse(frames[frames.length - 1].slice('data: '.length))
 }
 
+/** Count SSE data frames recorded on a fake response. */
+function countFrames(res) {
+  return res.body.split('\n\n').filter((frame) => frame.startsWith('data: ')).length
+}
+
 /** Mount the plugin on a fake context; returns the captured route and disposers. */
 function mount(options = {}) {
   const routes = []
@@ -268,6 +273,90 @@ try {
       await chmod(join(dir, 'storages'), 0o700)
       instance.dispose()
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Cross-process sync (Desktop and `dsh web` are separate Hosts)       *
+   * ------------------------------------------------------------------ */
+
+  // E. A write from another Host process is picked up and broadcast.
+  {
+    const dir = await caseDir('case-e')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1', 'w2']) })
+    await call(instance.route, 'GET', '/state')
+    const stream = await call(instance.route, 'GET', '/stream')
+    const framesBefore = countFrames(stream)
+    await writeFile(stateAt(dir), JSON.stringify({
+      version: 1, hidden: ['w2'], showHidden: true, legacyCleanupDone: true, updatedAt: new Date().toISOString(),
+    }), 'utf8')
+    await sleep(1300)
+    const state = JSON.parse((await call(instance.route, 'GET', '/state')).body)
+    equal('a write from another Host process is picked up', state.hidden, ['w2'])
+    equal('the external change is broadcast to SSE clients', lastFrame(stream).hidden, ['w2'])
+    check('the watcher adds no duplicate frames', countFrames(stream) === framesBefore + 1, `frames=${countFrames(stream)}`)
+    instance.dispose()
+  }
+
+  // F. A mutation merges state written meanwhile by another Host process.
+  {
+    const dir = await caseDir('case-f')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1', 'w2', 'w3']) })
+    await call(instance.route, 'GET', '/state')
+    await writeFile(stateAt(dir), JSON.stringify({
+      version: 1, hidden: ['w1', 'w2'], showHidden: false, legacyCleanupDone: true, updatedAt: new Date().toISOString(),
+    }), 'utf8')
+    const merged = JSON.parse((await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w3', value: true })).body)
+    equal("a mutation merges the other process's write", merged.hidden.slice().sort(), ['w1', 'w2', 'w3'])
+    equal('the merged state is persisted', JSON.parse(await readFile(stateAt(dir), 'utf8')).hidden.slice().sort(), ['w1', 'w2', 'w3'])
+    instance.dispose()
+  }
+
+  // G. Our own write is not broadcast twice by the watcher.
+  {
+    const dir = await caseDir('case-g')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1']) })
+    await call(instance.route, 'GET', '/state')
+    const stream = await call(instance.route, 'GET', '/stream')
+    await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w1', value: true })
+    const afterMutation = countFrames(stream)
+    await sleep(1300)
+    check('own writes do not echo an extra frame', countFrames(stream) === afterMutation, `afterMutation=${afterMutation} afterPoll=${countFrames(stream)}`)
+    instance.dispose()
+  }
+
+  // H. A corrupt external write keeps the in-memory state.
+  {
+    const dir = await caseDir('case-h')
+    process.env.DSH_HOME = dir
+    const instance = mount({ registry: knownRegistry(['w1']) })
+    await call(instance.route, 'GET', '/state')
+    await call(instance.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w1', value: true })
+    await writeFile(stateAt(dir), '{ broken json', 'utf8')
+    await sleep(1300)
+    const state = JSON.parse((await call(instance.route, 'GET', '/state')).body)
+    equal('a corrupt external write keeps the in-memory state', state.hidden, ['w1'])
+    instance.dispose()
+  }
+
+  // I. Two Host processes mutating concurrently: both changes survive.
+  {
+    const dir = await caseDir('case-i')
+    process.env.DSH_HOME = dir
+    const first = mount({ registry: knownRegistry(['w1', 'w2']) })
+    const second = mount({ registry: knownRegistry(['w1', 'w2']) })
+    await call(first.route, 'GET', '/state')
+    await call(second.route, 'GET', '/state')
+    await Promise.all([
+      call(first.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w1', value: true }),
+      call(second.route, 'POST', '/mutate', { type: 'setHidden', workspaceId: 'w2', value: true }),
+    ])
+    const disk = JSON.parse(await readFile(stateAt(dir), 'utf8'))
+    equal('concurrent mutations from two Hosts both survive', disk.hidden.slice().sort(), ['w1', 'w2'])
+    first.dispose()
+    second.dispose()
   }
 } finally {
   await rm(home, { recursive: true, force: true })
