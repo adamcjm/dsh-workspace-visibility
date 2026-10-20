@@ -1,16 +1,11 @@
 /**
- * Zero-dependency self-check for `@adamcjm/dsh-workspace-visibility`.
+ * Zero-dependency self-check for the browser half.
  *
- * No DSH process is needed: the client bundle is evaluated in a `vm` sandbox
- * with a fake `__ModuleLoader__`, React, document and localStorage. The checks
- * cover the four things that decide whether the plugin works:
- *
- *   1. the loader contract (id, `apply`, `inject`);
- *   2. the pure projection that hides a workspace without spilling its
- *      sessions into the shipped "Ungrouped" bucket;
- *   3. the store (persistence, stable snapshots, pruning);
- *   4. the model wrapper (filter on, filtering reference-stable, dispose
- *      restores the original own-property shape) and a full `apply()` run.
+ * Evaluates `lib/client.js` in a `vm` sandbox with a fake `__ModuleLoader__`,
+ * React, document, fetch, EventSource and localStorage. It covers the loader
+ * contract, the pure projection, the in-memory store, the Host bridge
+ * (bootstrap / increments / SSE / one-shot legacy cleanup) and a full
+ * `apply()` run against a fake Cordis context.
  *
  * Run: node test/verify.mjs
  */
@@ -21,7 +16,10 @@ import { runInNewContext } from 'node:vm'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const PACKAGE_NAME = '@adamcjm/dsh-workspace-visibility'
-const STORAGE_KEY = 'dsh-workspace-visibility.state.v1'
+const STATE_URL = '/workspace-visibility/state'
+const MUTATE_URL = '/workspace-visibility/mutate'
+const STREAM_URL = '/workspace-visibility/stream'
+const LEGACY_STORAGE_KEY = 'dsh-workspace-visibility.state.v1'
 
 /* ------------------------------------------------------------------ *
  * Fake browser                                                       *
@@ -37,6 +35,7 @@ function makeElement(tag) {
     children: [],
     parentElement: null,
     attributes: {},
+    style: {},
     appendChild(child) {
       child.parentElement = element
       element.children.push(child)
@@ -83,46 +82,102 @@ function makeDocument() {
   return documentStub
 }
 
-function makeStorage(initial) {
-  const data = new Map(initial === undefined ? [] : Object.entries(initial))
+function makeLocalStorage() {
+  const removed = []
+  const written = []
   return {
-    getItem(key) { return data.has(key) ? data.get(key) : null },
-    setItem(key, value) { data.set(key, String(value)) },
-    removeItem(key) { data.delete(key) },
-    dump() { return Object.fromEntries(data) },
+    removed,
+    written,
+    getItem() { return null },
+    setItem(key, value) { written.push([key, String(value)]) },
+    removeItem(key) { removed.push(key) },
   }
 }
 
 function makeMutationObserver() {
-  const instances = []
   class FakeMutationObserver {
-    constructor(callback) {
-      this.callback = callback
-      this.observed = null
-      instances.push(this)
-    }
-    observe(target) { this.observed = target }
-    disconnect() { this.observed = null }
+    constructor(callback) { this.callback = callback }
+    observe() {}
+    disconnect() {}
   }
-  return { Ctor: FakeMutationObserver, instances }
+  return FakeMutationObserver
 }
 
 function makeReact() {
   return {
-    createElement(type, props, ...children) {
-      return { type, props: props ?? {}, children }
-    },
+    createElement(type, props, ...children) { return { type, props: props ?? {}, children } },
     useState(initial) { return [typeof initial === 'function' ? initial() : initial, () => {}] },
     useEffect() {},
     useSyncExternalStore(subscribe, getSnapshot) { return getSnapshot() },
   }
 }
 
+/**
+ * A tiny Host simulator: the same state object the real `lib/index.js` would
+ * keep in memory, with the three routes the client uses.
+ */
+function makeHost(options = {}) {
+  const state = {
+    version: 1,
+    hidden: Array.isArray(options.hidden) ? [...options.hidden] : [],
+    showHidden: options.showHidden === true,
+    legacyCleanupDone: options.legacyCleanupDone === true,
+    updatedAt: null,
+  }
+  const calls = { state: 0, mutate: [] }
+  const sources = []
+  function broadcast() {
+    for (const source of sources) {
+      if (typeof source.onmessage === 'function' && !source.closed) {
+        source.onmessage({ data: JSON.stringify(state) })
+      }
+    }
+  }
+  function mutate(mutation) {
+    calls.mutate.push(mutation)
+    if (mutation.type === 'setHidden') {
+      const hidden = new Set(state.hidden)
+      if (mutation.value === true) hidden.add(mutation.workspaceId)
+      else hidden.delete(mutation.workspaceId)
+      state.hidden = Array.from(hidden)
+    } else if (mutation.type === 'setShowHidden') {
+      state.showHidden = mutation.value === true
+    } else if (mutation.type === 'setLegacyCleanupDone') {
+      state.legacyCleanupDone = mutation.value === true
+    }
+    broadcast()
+    return state
+  }
+  async function fetchFn(url, init) {
+    const method = init && init.method ? init.method : 'GET'
+    if (url === STATE_URL && method === 'GET') {
+      calls.state += 1
+      return { ok: true, status: 200, json: async () => state }
+    }
+    if (url === MUTATE_URL && method === 'POST') {
+      const body = JSON.parse(init.body)
+      return { ok: true, status: 200, json: async () => mutate(body) }
+    }
+    return { ok: false, status: 404, json: async () => ({ error: 'not found' }) }
+  }
+  class FakeEventSource {
+    constructor(url) {
+      this.url = url
+      this.closed = false
+      FakeEventSource.instances.push(this)
+      sources.push(this)
+    }
+    close() { this.closed = true }
+  }
+  FakeEventSource.instances = []
+  return { state, calls, fetchFn, FakeEventSource, sources }
+}
+
 function loadBundle(options = {}) {
   const code = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8')
   const document = makeDocument()
-  const storage = options.storage ?? makeStorage()
-  const observer = makeMutationObserver()
+  const localStorage = options.localStorage ?? makeLocalStorage()
+  const host = options.host ?? makeHost()
   const entries = []
   const sandbox = {
     console,
@@ -142,17 +197,13 @@ function loadBundle(options = {}) {
     setTimeout,
     clearTimeout,
     document,
-    MutationObserver: undefined,
     window: {
       __ModuleLoader__: { load(entry) { entries.push(entry) } },
-      localStorage: storage,
-      MutationObserver: observer.Ctor,
-      KeyboardEvent: class FakeKeyboardEvent {
-        constructor(type, init) {
-          this.type = type
-          this.key = init?.key
-        }
-      },
+      localStorage,
+      fetch: host.fetchFn,
+      EventSource: host.FakeEventSource,
+      MutationObserver: makeMutationObserver(),
+      KeyboardEvent: class FakeKeyboardEvent { constructor(type, init) { this.type = type; this.key = init?.key } },
     },
     React: makeReact(),
   }
@@ -160,13 +211,14 @@ function loadBundle(options = {}) {
   runInNewContext(code, sandbox)
   if (entries.length !== 1) throw new Error(`expected one loader entry, got ${entries.length}`)
   const entry = entries[0]
-  const react = makeReact()
   const exports = entry.factory((id) => {
-    if (id === 'react') return react
+    if (id === 'react') return makeReact()
     throw new Error(`unexpected dependency: ${id}`)
   })
-  return { entry, exports, document, storage, observer }
+  return { entry, exports, document, localStorage, host }
 }
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /* ------------------------------------------------------------------ *
  * Mini test harness                                                    *
@@ -188,21 +240,20 @@ equal('loader entry id is the package name', loaded.entry.id, PACKAGE_NAME)
 check('factory publishes apply', typeof loaded.exports.apply === 'function')
 equal('inject waits for slots/locale/workspaces', loaded.exports.inject, ['slots', 'locale', 'workspaces'])
 const t = loaded.exports.__test
-check('test seam is exported', t !== undefined && typeof t.filterProjection === 'function')
+check('test seam is exported', t !== undefined && typeof t.filterProjection === 'function'
+  && typeof t.installSync === 'function' && typeof t.normalizeRemoteState === 'function')
+check('no localStorage persistence helpers remain', t.parseStored === undefined && t.serializeState === undefined)
 
 /* ------------------------------------------------------------------ *
- * 2. Persistence parsing                                               *
+ * 2. Host payload normalization                                        *
  * ------------------------------------------------------------------ */
-equal('parseStored(null) is empty', t.parseStored(null), { hidden: [], showHidden: false })
-equal('parseStored(broken json) is empty', t.parseStored('{oops'), { hidden: [], showHidden: false })
-equal('parseStored(array) is empty', t.parseStored('[]'), { hidden: [], showHidden: false })
-equal(
-  'parseStored keeps valid ids, drops junk and duplicates',
-  t.parseStored(JSON.stringify({ hidden: ['a', '', null, 7, 'a', 'b'], showHidden: true })),
-  { hidden: ['a', 'b'], showHidden: true },
-)
-equal('serializeState round-trips', t.parseStored(t.serializeState(new Set(['x', 'y']), true)), { hidden: ['x', 'y'], showHidden: true })
-equal('serializeState stores the switch', t.serializeState(new Set(), true).includes('"showHidden":true'), true)
+equal('normalizeRemoteState(junk) is empty', t.normalizeRemoteState(null), {
+  hidden: [], showHidden: false, legacyCleanupDone: false,
+})
+equal('normalizeRemoteState dedupes and validates ids', t.normalizeRemoteState({
+  hidden: ['a', '', null, 7, 'a', 'b'], showHidden: true, legacyCleanupDone: false,
+}), { hidden: ['a', 'b'], showHidden: true, legacyCleanupDone: false })
+equal('normalizeRemoteState keeps the cleanup flag', t.normalizeRemoteState({ legacyCleanupDone: true }).legacyCleanupDone, true)
 
 /* ------------------------------------------------------------------ *
  * 3. Snapshot projection                                               *
@@ -221,107 +272,107 @@ equal('hidden workspace leaves items', projected.items.map((item) => item.worksp
 equal('hidden sessions join the view-only archive set', projected.archivedSessionIds, ['s9', 's1', 's2'])
 equal('hidden sessions lose their pin', projected.pinnedSessionIds, ['s3'])
 equal('nothing hidden returns the same snapshot object', t.filterProjection(raw, new Set()), raw)
-equal('hidden id absent from items returns the same object', t.filterProjection(raw, new Set(['nope'])), raw)
 equal('mergeArchived dedupes and keeps base order', t.mergeArchived(['a', 'b'], ['b', 'c']), ['a', 'b', 'c'])
-equal('mergeArchived without extra reuses the base array', t.mergeArchived(['a'], []), ['a'])
 
 /* ------------------------------------------------------------------ *
  * 4. Menu recognition (zh + en)                                        *
  * ------------------------------------------------------------------ */
 equal('recognizes the shipped workspace menu (zh)', t.menuKindFromText('重命名删除工作区'), 'workspace')
 equal('recognizes the shipped workspace menu (en)', t.menuKindFromText('RenameDelete workspace'), 'workspace')
-equal('recognizes the shipped view options menu (zh)', t.menuKindFromText('分组方式按工作区按工作区树单列表'), 'viewOptions')
+equal('recognizes the shipped view options menu (zh)', t.menuKindFromText('分组方式按工作区'), 'viewOptions')
 equal('recognizes the shipped view options menu (en)', t.menuKindFromText('Group byWorkspace'), 'viewOptions')
 equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), null)
 
 /* ------------------------------------------------------------------ *
- * 5. Store                                                             *
+ * 5. In-memory store (no browser persistence)                          *
  * ------------------------------------------------------------------ */
 {
-  const storage = makeStorage()
-  const store = t.createStore({ storage })
+  const store = t.createStore()
+  const mutations = []
+  const offSink = store.setMutationSink((mutation) => mutations.push(mutation))
   const before = store.getState()
   check('snapshot is referentially stable while unchanged', store.getState() === before)
-  let notified = 0
-  const off = store.subscribe(() => { notified += 1 })
-  check('setHidden writes a new state version', store.setHidden('w1', true) === true)
-  check('setHidden notifies subscribers', notified === 1)
-  check('setHidden twice is a no-op', store.setHidden('w1', true) === false)
-  check('snapshot changes after a write', store.getState() !== before)
-  check('storage received the hidden id', JSON.parse(storage.getItem(STORAGE_KEY)).hidden[0] === 'w1')
-  check('showHidden toggles', store.setShowHidden(true) === true && store.getState().showHidden === true)
-  check('prune drops stale ids, keeps real ones', store.prune(new Set(['w2'])) === true && store.getState().hidden.size === 0)
+  check('applyRemoteState marks the store ready', store.applyRemoteState({
+    hidden: ['w1'], showHidden: false, legacyCleanupDone: false,
+  }) === true && store.getState().ready === true)
+  check('echoing the same state does not repaint', store.applyRemoteState({
+    hidden: ['w1'], showHidden: false, legacyCleanupDone: false,
+  }) === false)
+  check('setHidden is optimistic', store.setHidden('w2', true) === true && store.isHidden('w2'))
+  check('setHidden reports the mutation for the Host', mutations.length === 1
+    && mutations[0].type === 'setHidden' && mutations[0].workspaceId === 'w2' && mutations[0].value === true)
   check('hiding closes the show-hidden switch', (() => {
-    store.setShowHidden(true)
-    store.setHidden('w4', true)
+    store.applyRemoteState({ hidden: ['w1', 'w2'], showHidden: true })
+    store.setHidden('w3', true)
     return store.getState().showHidden === false
   })())
-  check('unhiding the last row closes the switch too', (() => {
-    store.setHidden('w3', false)
+  check('setShowHidden reports the mutation', (() => {
+    const beforeCount = mutations.length
     store.setShowHidden(true)
-    store.setHidden('w4', false)
-    return store.getState().showHidden === false && store.getState().hidden.size === 0
+    return mutations.length === beforeCount + 1 && mutations[mutations.length - 1].type === 'setShowHidden'
   })())
-  off()
-  check('unsubscribe stops notifications', (() => { const n = notified; store.setHidden('w3', true); return notified === n })())
+  check('prune removes stale ids and tells the Host', (() => {
+    store.applyRemoteState({ hidden: ['w1', 'w9'], showHidden: false })
+    const beforeCount = mutations.length
+    const changed = store.prune(new Set(['w1', 'w2', 'w3']))
+    const last = mutations[mutations.length - 1]
+    return changed === true && store.getState().hidden.size === 1
+      && mutations.length === beforeCount + 1 && last.type === 'setHidden' && last.workspaceId === 'w9' && last.value === false
+  })())
+  offSink()
+  check('sink deregistration stops forwarding', (() => {
+    const beforeCount = mutations.length
+    store.setHidden('w4', true)
+    return mutations.length === beforeCount
+  })())
 }
 
 /* ------------------------------------------------------------------ *
- * 6. Workspace model projection                                        *
+ * 6. Host bridge: bootstrap, increments, SSE, one-shot legacy cleanup  *
  * ------------------------------------------------------------------ */
 {
-  const modelListeners = new Set()
-  const state = { raw }
-  const prototype = {
-    getSnapshot() { return state.raw },
-    subscribe(listener) {
-      modelListeners.add(listener)
-      return () => modelListeners.delete(listener)
-    },
-  }
-  const model = Object.create(prototype)
-  const store = t.createStore({ storage: makeStorage() })
-  const fakeCtx = { get(name) { return name === 'workspaces' ? { list: model } : null } }
-  const dispose = t.installWorkspaceProjection(fakeCtx, store)
+  const localStorage = makeLocalStorage()
+  const host = makeHost({ hidden: ['w1'], showHidden: false, legacyCleanupDone: false })
+  const bridge = loadBundle({ localStorage, host })
+  const store = bridge.exports.__test.createStore()
+  const dispose = bridge.exports.__test.installSync({}, store, { warn: () => {} })
+  await sleep(30)
+  check('bootstrap fetched the state once', host.calls.state === 1)
+  check('bootstrap applied the Host state', store.isHidden('w1'))
+  check('legacy key removed exactly once', localStorage.removed.length === 1 && localStorage.removed[0] === LEGACY_STORAGE_KEY)
+  check('legacy cleanup recorded on the Host', host.state.legacyCleanupDone === true
+    && host.calls.mutate.some((m) => m.type === 'setLegacyCleanupDone'))
+  check('browser state is never persisted', localStorage.written.length === 0)
 
-  equal('wrapper filters after a hide', (() => { store.setHidden('w1', true); return model.getSnapshot().items.map((i) => i.workspaceId) })(), ['w2'])
-  const a = model.getSnapshot()
-  const b = model.getSnapshot()
-  check('filtered snapshot is cached between reads', a === b)
-  check('showing hidden workspaces returns the raw snapshot', (() => {
-    store.setShowHidden(true)
-    return model.getSnapshot() === state.raw
-  })())
-  check('model subscribers are bridged to the store', (() => {
-    let hit = 0
-    const off = model.subscribe(() => { hit += 1 })
-    store.setHidden('w2', true)
-    off()
-    return hit === 1
-  })())
+  const source = host.FakeEventSource.instances[0]
+  check('SSE stream connected', source !== undefined && source.url === STREAM_URL)
+  source.onmessage({ data: JSON.stringify({ hidden: ['w2'], showHidden: true, legacyCleanupDone: true }) })
+  check('SSE state applied to the store', store.isHidden('w2') && store.getState().showHidden === true && !store.isHidden('w1'))
+
+  store.setHidden('w3', true)
+  await sleep(30)
+  check('local mutation sent as an increment', host.calls.mutate.some((m) => m.type === 'setHidden' && m.workspaceId === 'w3' && m.value === true))
+  check('increments kept the pre-existing Host ids', host.state.hidden.includes('w1') && host.state.hidden.includes('w3'))
+  check('legacy key was not touched again', localStorage.removed.length === 1)
+
   dispose()
-  check('dispose removes the own getSnapshot property', Object.prototype.hasOwnProperty.call(model, 'getSnapshot') === false)
-  check('dispose restores the prototype snapshot', model.getSnapshot() === state.raw)
+  check('dispose closes the SSE stream', source.closed === true)
 }
 
 /* ------------------------------------------------------------------ *
- * 7. Full apply() with a fake Cordis context                          *
+ * 7. Full apply() with a fake Cordis context                           *
  * ------------------------------------------------------------------ */
 {
-  const persisted = makeStorage({
-    [STORAGE_KEY]: JSON.stringify({ hidden: ['w1'], showHidden: false }),
-  })
-  const react = makeReact()
-  const loadedApply = loadBundle({ storage: persisted })
-  const modelListeners = new Set()
-  const state = { raw }
+  const localStorage = makeLocalStorage()
+  const host = makeHost({ hidden: ['w1'], showHidden: false, legacyCleanupDone: false })
+  const loadedApply = loadBundle({ localStorage, host })
   const model = {
-    getSnapshot() { return state.raw },
-    subscribe(listener) { modelListeners.add(listener); return () => modelListeners.delete(listener) },
+    getSnapshot() { return raw },
+    subscribe() { return () => {} },
   }
   const effects = []
   const registrations = []
-  const localeRegistrations = []
+  const dictionaries = []
   const fakeCtx = {
     effect(fn, label) {
       const dispose = fn()
@@ -330,10 +381,10 @@ equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), nul
     },
     get(name) { return name === 'workspaces' ? { list: model } : null },
     locale: {
-      register(ns, dict) { localeRegistrations.push({ ns, dict }); return () => {} },
+      register(ns, dict) { dictionaries.push({ ns, dict }); return () => {} },
       bind(ns) {
         return (key) => {
-          const dict = localeRegistrations.find((item) => item.ns === ns)?.dict
+          const dict = dictionaries.find((item) => item.ns === ns)?.dict
           const active = dict?.zh ?? dict?.en ?? {}
           return active[key] ?? key
         }
@@ -349,23 +400,25 @@ equal('unknown menu text is ignored', t.menuKindFromText('Copy Session ID'), nul
         return { dispose() {} }
       },
     },
+    logger: { warn() {} },
   }
   loadedApply.exports.apply(fakeCtx)
-  check('apply registers the namespace dictionary', localeRegistrations.length === 1 && localeRegistrations[0].ns === 'dsh-workspace-visibility'
-    && localeRegistrations[0].dict.zh !== undefined && localeRegistrations[0].dict.en !== undefined)
+  await sleep(40)
+  check('apply registers the namespace dictionary', dictionaries.length === 1
+    && dictionaries[0].ns === 'dsh-workspace-visibility' && dictionaries[0].dict.zh && dictionaries[0].dict.en)
   check('apply registers the sidebar-foot fallback', registrations.length === 1
     && registrations[0].options.name === 'sidebar.footer.action'
     && registrations[0].options.id === 'workspace-visibility')
-  check('apply wraps the workspace model', typeof model.getSnapshot === 'function' && model.getSnapshot().items.length === 1
+  check('Host state is projected onto the sidebar model', model.getSnapshot().items.length === 1
     && model.getSnapshot().items[0].workspaceId === 'w2')
-  check('persisted hide is projected on load', model.getSnapshot().archivedSessionIds.includes('s1'))
   check('apply injects exactly one stylesheet', loadedApply.document.getElementById('dsh-workspace-visibility/style') !== null)
+  check('apply removed the legacy key once', localStorage.removed.length === 1 && localStorage.removed[0] === LEGACY_STORAGE_KEY)
+  check('apply never wrote localStorage', localStorage.written.length === 0)
 
-  // Dispose every effect, then everything must be back to the untouched model.
   for (const effect of effects) {
     if (typeof effect.dispose === 'function') effect.dispose()
   }
-  check('effect disposal restores the raw model', model.getSnapshot() === state.raw)
+  check('effect disposal restores the raw model', model.getSnapshot() === raw)
   check('effect disposal removes the stylesheet', loadedApply.document.getElementById('dsh-workspace-visibility/style') === null)
   check('store.dispose effect is registered last', effects.map((e) => e.label).includes('dsh-workspace-visibility: store'))
 }

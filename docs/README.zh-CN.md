@@ -16,9 +16,9 @@
 
 设计上只做显示过滤：
 
-- 不调用归档 / 取消归档 / 重命名 / 移动 / 删除；
-- 不写 Host 配置、不落文件、不联网；
-- 唯一写入是浏览器里的一个 `localStorage` 键。
+- 不调用归档 / 取消归档 / 重命名 / 移动 / pin / 删除；
+- 不改工作区记录、会话日志与归档集合；
+- 唯一写入是 Host 上的一个小文件（`$DSH_HOME/storages/workspace-visibility.json`）。
 
 ## 截图
 
@@ -30,7 +30,28 @@
 
 ![隐藏工作区后的侧栏与底部隐藏计数入口](https://raw.githubusercontent.com/adamcjm/dsh-workspace-visibility/main/docs/screenshots/hidden-workspace.png)
 
-<sub>截图使用演示用的工作区名称，界面语言为中文。</sub>
+<sub>截图使用演示用的工作区名称；本节使用中文界面（英文节为同一流程的英文界面截图）。</sub>
+
+## 持久化与多客户端同步
+
+隐藏集合与「显示隐藏工作区」开关是 **Host 状态**，不是浏览器状态：
+
+- 它们存在 `$DSH_HOME/storages/workspace-visibility.json`，由本插件的 Host 半侧原子写入
+  （临时文件 + rename）。
+- 浏览器**不保留副本**——本插件不读写 `localStorage`（0.1.x 用户的旧键会被删除一次，
+  旧数据直接丢弃、不做迁移）。
+- 浏览器启动时拉取一次状态，随后跟随 **SSE 流**（`/workspace-visibility/stream`）：
+  任一客户端里的变更会被推送给所有已连接客户端——Desktop、其它标签页、其它浏览器——
+  无需刷新。这与官方工作区排序的 `workspace/follow` 推送模型一致。
+- 本地变更以**增量**方式发送（`POST /workspace-visibility/mutate`），两个客户端隐藏不同
+  工作区时不会互相覆盖。
+- 结果：状态能跨 Desktop 重启与随机端口保留；连接同一个 Host 的所有客户端看到同一份
+  隐藏集合；连接不同 Host（或不同 `DSH_HOME`）的客户端各有自己的状态。
+
+### 从 0.1.x 升级
+
+旧 `localStorage` 键（`dsh-workspace-visibility.state.v1`）由 Host 的 `legacyCleanupDone`
+标记驱动、只删除一次。不做迁移：0.1.x 里隐藏的工作区在升级后会重新显示。
 
 ## 安装
 
@@ -130,9 +151,10 @@ slot；工作区行的「…」菜单和视图选项菜单都是硬编码数组�
 
 ## 范围与已知限制
 
-- **只在本浏览器生效。** 隐藏集合与开关属于单个 origin，不跨设备；清站点数据即遗忘。
-  DSH Desktop 与 `dsh web` profile 是不同 origin（`dsh web` 每次启动端口还会随机），两者
-  不共享隐藏集合。
+- **Host 状态，同一 Host 上的所有客户端共享。** 隐藏集合与开关存在
+  `$DSH_HOME/storages/workspace-visibility.json`；连接同一个 Host 的浏览器、标签页、
+  Desktop 与 web 界面看到同一份集合，跨 Desktop 重启与随机端口保留，清站点数据也不会丢。
+  连接不同 Host（或不同 `DSH_HOME`）的客户端各有自己的状态。
 - **两个菜单项是 DOM 追加的。** 未来侧边栏改版可能移动菜单；隐藏本身不受影响（走数据投影），
   侧栏底部兜底入口始终可用。如升级后菜单项消失，请用底部兜底恢复。
 - **隐藏工作区的展开状态会丢。** 官方视图 store 会清理“看不见的工作区”的展开记录，
@@ -141,7 +163,8 @@ slot；工作区行的「…」菜单和视图选项菜单都是硬编码数组�
   用开关把行找回来即可。
 - **与归档视图的交互。** 切到官方的「全部对话（显示已归档）」时，被隐藏工作区的会话会以
   已归档行出现在「未分组」（投影把它们标成了视图层已归档）。默认的「隐藏已归档」视图不受影响。
-- 不是 Host 功能：其它客户端（另一个浏览器、TUI profile）照旧看到全部工作区。
+- **不属于工作区注册表。** 状态文件归本插件所有；未安装本插件的 TUI 会话或另一套 DSH
+  安装照旧看到全部工作区。
 
 ## 验证
 
@@ -151,23 +174,32 @@ slot；工作区行的「…」菜单和视图选项菜单都是硬编码数组�
 npm test
 ```
 
-它在 `vm` 沙箱里加载真实的 `lib/client.js`，检查加载器契约、快照投影（含“不漏进未分组”）、
-持久化、包装的引用稳定性与卸载还原，以及对着 fake Cordis context 跑一遍完整 `apply()`。
+`npm test` 跑两个零依赖测试套件。浏览器套件在 `vm` 沙箱里加载 `lib/client.js`：加载器契约、
+快照投影（含“不漏进未分组”）、内存 store、bootstrap/SSE/增量同步、包装与卸载、完整
+`apply()`。Host 套件对着 fake web server 驱动 `lib/index.js`：原子写入、增量、SSE 广播、
+重启后重新加载、损坏文件容错。
 
 在真实页面中（重启 DSH 后）：
 
 ```js
 // 插件已加载
 document.getElementById('dsh-workspace-visibility/style') !== null
-// 隐藏集合已持久化
-localStorage.getItem('dsh-workspace-visibility.state.v1')
+// 页面 console：状态由 Host 提供，不在 localStorage
+await (await fetch('/workspace-visibility/state')).json()
+```
+
+Host 命令行：
+
+```sh
+cat "${DSH_HOME:-$HOME/.dsh}/storages/workspace-visibility.json"
 ```
 
 ## 卸载
 
 1. 卸载前先打开「显示隐藏工作区」把隐藏项恢复（或直接卸载——隐藏 id 会变成惰性数据）。
 2. 从 profile 的 `dependencies` 与 `dsh.profile.bundles` 中移除，`pnpm install`，重启 DSH。
-3. 可选：清掉 `localStorage` 的 `dsh-workspace-visibility.state.v1`。
+3. 可选：删除 Host 状态文件 `$DSH_HOME/storages/workspace-visibility.json`（若想保留恢复
+   能力，先打开「显示隐藏工作区」逐项取消隐藏）。
 
 ## 目录结构
 

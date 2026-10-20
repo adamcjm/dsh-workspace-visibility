@@ -1,6 +1,6 @@
 {
   "name": "@adamcjm/dsh-workspace-visibility",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Hide selected workspaces — and the sessions they own — from the DSH sidebar, then bring them back with a Show hidden workspaces switch in the sidebar view options. Display-only: workspace, session and archive data are never modified.",
   "type": "module",
   "main": "lib/index.js",
@@ -24,7 +24,7 @@
     "docs"
   ],
   "scripts": {
-    "test": "node test/verify.mjs"
+    "test": "node test/verify.mjs && node test/host.mjs"
   },
   "keywords": [
     "deepseek-harness",

@@ -6,6 +6,23 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-20
+
+### Changed
+
+- **State moved to the Host.** Hidden ids and the show-hidden switch now live in
+  `$DSH_HOME/storages/workspace-visibility.json`, written atomically from a serialized
+  queue. The browser keeps no copy — localStorage is no longer read or written (except
+  the one-shot removal of the 0.1.x key, driven by the Host `legacyCleanupDone` flag).
+- **Multi-client sync.** The browser half fetches the state once at boot and then follows
+  an SSE stream (`/workspace-visibility/stream`): a change in Desktop reaches an open Web
+  page, other tabs and other browsers sharing the same Host without a refresh — the same
+  push model as the shipped `workspace/follow` stream. Local mutations travel as
+  increments (`POST /mutate`) so two clients cannot overwrite each other.
+- Survives Desktop restarts and port changes, unlike the 0.1.x localStorage state.
+- New Host test suite (`test/host.mjs`): atomic writes, increments, SSE broadcast,
+  restart reload, corrupt-file tolerance.
+
 ## [0.1.3] — 2026-10-20
 
 ### Changed
